@@ -2,6 +2,8 @@
 
 use Aws\DynamoDb\DynamoDbClient;
 use Aws\DynamoDb\Enum\Type;
+use Aws\DynamoDb\Model;
+use Aws\DynamoDb\Model\Attribute;
 
 header('Content-Type: text/plain; charset=utf-8');
 require 'vendor/autoload.php';
@@ -22,7 +24,9 @@ function routing()
             retrieveObject($className, $objectId);
             break;
         case 'PUT':
-            echo $_SERVER['REQUEST_METHOD'];
+            $objectId = explode('/', $_SERVER['REQUEST_URI'])[4];
+            $input = file_get_contents('php://input');
+            updateObject($className, $objectId, $input);
             break;
         case 'DELETE':
             echo $_SERVER['REQUEST_METHOD'];
@@ -84,6 +88,31 @@ function retrieveObject($className, $objectId)
     }
 
     echo json_encode($item, JSON_PRETTY_PRINT);
+}
+
+function updateObject($className, $objectId, $input)
+{
+    $updateItem = array();
+    $datetime = new DateTime('now', new DateTimeZone('UTC'));
+    $updateItem['updatedAt'] = $datetime->format(DATE_ISO8601);
+
+    $item = json_decode($input, true);
+    $item += $updateItem;
+    $aws = Aws\Common\Aws::factory("./config.php");
+    /** @var $client Aws\DynamoDb\DynamoDbClient */
+    $client = $aws->get("dynamodb");
+
+    $response = $client->updateItem(
+        array(
+            "TableName" => $className,
+            "Key" => array(
+                "objectId" => array(Type::STRING => $objectId)
+            ),
+            "AttributeUpdates" => $client->formatAttributes($item, Attribute::FORMAT_UPDATE),
+        )
+    );
+
+    echo json_encode($updateItem, JSON_PRETTY_PRINT);
 }
 
 /**

@@ -1,6 +1,7 @@
 <?php
 
 use Aws\DynamoDb\DynamoDbClient;
+use Aws\DynamoDb\Enum\Type;
 
 header('Content-Type: text/plain; charset=utf-8');
 require 'vendor/autoload.php';
@@ -17,7 +18,8 @@ function routing()
             createObject($className, $input);
             break;
         case 'GET':
-            echo $_SERVER['REQUEST_METHOD'];
+            $objectId = explode('/', $_SERVER['REQUEST_URI'])[4];
+            retrieveObject($className, $objectId);
             break;
         case 'PUT':
             echo $_SERVER['REQUEST_METHOD'];
@@ -31,9 +33,10 @@ function routing()
 function createObject($className, $input)
 {
     $item = json_decode($input, true);
-    $item['objectId'] = uniqid();
     $datetime = new DateTime('now', new DateTimeZone('UTC'));
     $item['createdAt'] = $datetime->format(DATE_ISO8601);
+    $item['updatedAt'] = $datetime->format(DATE_ISO8601);
+    $item['objectId'] = uniqid();
 
     $aws = Aws\Common\Aws::factory("./config.php");
     /** @var $client Aws\DynamoDb\DynamoDbClient */
@@ -53,6 +56,34 @@ function createObject($className, $input)
     $response->createdAt = $item['createdAt'];
     $response->objectId = $item['objectId'];
     echo json_encode($response, JSON_PRETTY_PRINT);
+}
+
+function retrieveObject($className, $objectId)
+{
+    $aws = Aws\Common\Aws::factory("./config.php");
+    /** @var $client Aws\DynamoDb\DynamoDbClient */
+    $client = $aws->get("dynamodb");
+
+    $response = $client->getItem(
+        array(
+            "TableName" => $className,
+            "ConsistentRead" => true,
+            "Key" => array(
+                "objectId" => array(Type::STRING => $objectId)
+            ),
+        )
+    );
+
+    $item = array();
+    foreach ($response["Item"] as $key => $value) {
+        if (array_keys($value)[0] == Type::NUMBER) {
+            $item[$key] = (int)array_values($value)[0];
+        } else {
+            $item[$key] = array_values($value)[0];
+        }
+    }
+
+    echo json_encode($item, JSON_PRETTY_PRINT);
 }
 
 /**

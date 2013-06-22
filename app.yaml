@@ -4,5 +4,5 @@ runtime: php
 api_version: 1
 
 handlers:
-- url: /.*
-  script: index.php
+- url: /1/classes/(.+)
+  script: classes.php

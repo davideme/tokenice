@@ -1,4 +1,10 @@
 <?php
+
+use Aws\DynamoDb\DynamoDbClient;
+
+header('Content-Type: text/plain; charset=utf-8');
+require 'vendor/autoload.php';
+
 routing();
 
 function routing()
@@ -24,15 +30,28 @@ function routing()
 
 function createObject($className, $input)
 {
-    json_decode($input);
+    $item = json_decode($input, true);
+    $item['objectId'] = uniqid();
+    $datetime = new DateTime('now', new DateTimeZone('UTC'));
+    $item['createdAt'] = $datetime->format(DATE_ISO8601);
 
-    $objectId = "Ed1nuqPvcm";
+    $aws = Aws\Common\Aws::factory("./config.php");
+    /** @var $client Aws\DynamoDb\DynamoDbClient */
+    $client = $aws->get("dynamodb");
+
+    $client->putItem(
+        array(
+            "TableName" => $className,
+            "Item" => $client->formatAttributes($item)
+        )
+    );
+
 
     header('Status: 201 Created');
-    header('Location: ' . currentUrl() . '/' . $objectId);
+    header('Location: ' . currentUrl() . '/' . $item['objectId']);
     $response = new stdClass();
-    $response->createdAt = "2011-08-20T02:06:57.931Z";
-    $response->objectId = $objectId;
+    $response->createdAt = $item['createdAt'];
+    $response->objectId = $item['objectId'];
     echo json_encode($response, JSON_PRETTY_PRINT);
 }
 
